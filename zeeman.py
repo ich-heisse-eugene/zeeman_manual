@@ -265,16 +265,16 @@ class ZLine(ZSpec):
 		par31 = 0.4 * (self.nwl1[-1] - self.nwl1[0]); par32 = par31
 		p1 = np.array([par01, 0., par11, par21, par31])
 		p2 = np.array([par02, 0., par12, par22, par32])
-		opt1, pcov1, infodict1, errmsg1, success1 = leastsq(errfunc, p1, args=(self.wl, self.r1), full_output=True)
-		opt2, pcov2, infodict2, errmsg2, success2 = leastsq(errfunc, p2, args=(self.wl, self.r2), full_output=True)
+		opt1, pcov1, infodict1, errmsg1, success1 = leastsq(errfunc, p1, args=(self.wl, self.r1), maxfev=10000, full_output=True)
+		opt2, pcov2, infodict2, errmsg2, success2 = leastsq(errfunc, p2, args=(self.wl, self.r2), maxfev=10000, full_output=True)
 		if pcov1 is not None and pcov2 is not None:
 			s_sq1 = (errfunc(opt1, self.wl, self.r1)**2).sum()/(len(self.r1)-len(p1))
 			pcov1 = pcov1 * s_sq1
 			s_sq2 = (errfunc(opt2, self.wl, self.r2)**2).sum()/(len(self.r2)-len(p2))
 			pcov2 = pcov2 * s_sq2
 		else:
-			pcov1 = np.inf
-			pcov2 = np.inf
+			pcov1 = np.zeros(len(opt1))
+			pcov2 = np.zeros(len(opt1))
 		errors1 = []; errors2 = []
 		for i in range(len(opt1)):
 			errors1.append(np.absolute(pcov1[i][i])**0.5)
