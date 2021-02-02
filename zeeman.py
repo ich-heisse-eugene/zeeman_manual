@@ -2,7 +2,7 @@
 #
 # Programme aimed on measurements of zeeman shift in stellar polarized spectra
 # by means of the center of gravity method and gaussian fitting of line's profile
-# Author: Eugene Semenko. Last modification: 06 Jan 2021
+# Author: Eugene Semenko. Last modification: 02 Feb 2021
 
 from sys import exit, argv
 import numpy as np
