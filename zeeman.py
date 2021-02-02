@@ -108,6 +108,11 @@ class ZSpec(object):
 		global Be_gs, Be_cog, fld_factor, v_stockes
 		mpl.rcParams['text.usetex'] = True
 		# Classic method and its variations
+		for i in range(5):
+			idx_gs = np.where((Be_gs >= np.mean(Be_gs) - 3.*np.std(Be_gs, ddof=1)) & (Be_gs <= np.mean(Be_gs) + 3.*np.std(Be_gs, ddof=1)))
+			idx_cog = np.where((Be_cog >= np.mean(Be_cog) - 3.*np.std(Be_cog, ddof=1)) & (Be_cog <= np.mean(Be_cog) + 3.*np.std(Be_cog, ddof=1)))
+			Be_cog = Be_cog[idx_cog]
+			Be_gs = Be_gs[idx_gs]
 		mean_be_cog = np.mean(Be_cog)
 		sigma_be_cog = np.std(Be_cog, ddof=1)
 		mean_be_gauss = np.mean(Be_gs)
