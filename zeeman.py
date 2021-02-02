@@ -2,7 +2,7 @@
 #
 # Programme aimed on measurements of zeeman shift in stellar polarized spectra
 # by means of the center of gravity method and gaussian fitting of line's profile
-# Author: Eugene Semenko. Last modification: 02 Feb 2021
+# Author: Eugene Semenko. Last modification: 06 Jan 2021
 
 from sys import exit, argv
 import numpy as np
@@ -150,10 +150,17 @@ class ZSpec(object):
 		sigma_a = np.sqrt(sigma_y**2 * np.sum(fld_factor**2) / det)
 		sigma_b = np.sqrt(N * sigma_y**2 / det)
 		chisq = np.sum(((v_stockes - a - b*fld_factor) / sigma_y)**2)
+		with open('analysis_full.out', 'a') as fp:
+			fp.write("======================\n")
+			fp.write("Regressional analysis:\n")
+			fp.write(f"<Bz> = {b:.0f} ± {sigma_b:.0f} G, χ^2 = {chisq:.2f} ({np.random.chisquare(N-2, 1)[0]:.2f})\n")
+			fp.write("======================\n")
+			fp.close()
 		print("======================")
 		print("Regressional analysis:")
 		print(f"<Bz> = {b:.0f} ± {sigma_b:.0f} G, χ^2 = {chisq:.2f} ({np.random.chisquare(N-2, 1)[0]:.2f})")
 		print("======================")
+		fp.close()
 		# Visualization. Classic
 		if nlines >= 30:
 			nbins = 10
