@@ -499,5 +499,5 @@ if __name__ == "__main__":
 	fh.write('# λ1_cog    λ2_cog   Be_cog   λ1_gauss    λ2_gauss   Be_gauss  FWHM1   FWHM2   g_lande\n')
 	spec = ZSpec()
 	cnv = Graphics(spec.wli, spec.ri1, spec.ri2)
-	close(fh)
+	fh.close()
 	exit(0)
