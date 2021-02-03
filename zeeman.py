@@ -250,57 +250,67 @@ class ZLine(ZSpec):
 		# Redetermination of continuum level
 		self.cont1, self.nwl1, nr1 = contin_def(self.wl, self.r1)
 		self.cont2, self.nwl2, nr2 = contin_def(self.wl, self.r2)
-		y11 = self.nwl1 * (self.cont1 - nr1)
-		y12 = (self.cont1 - nr1)
-		y21 = self.nwl2 * (self.cont2 - nr2)
-		y22 = (self.cont2 - nr2)
-		int11 = integrate.simps(y11, self.nwl1, even='avg')
-		int12 = integrate.simps(y12, self.nwl1, even='avg')
-		int21 = integrate.simps(y21, self.nwl2, even='avg')
-		int22 = integrate.simps(y22, self.nwl2, even='avg')
-		self.cent1 = int11 / int12
-		self.cent2 = int21 / int22
-		self.becog = (self.cent1 - self.cent2) / (const1 * ((self.cent1+self.cent2)/2.)**2 * glande)
-		print("Line from %.4f to %.4f" %(self.wl[0], self.wl[-1]))
-		print("Center of gravity: centers on %.4f           and %.4f          , Be = %.0f G" %(self.cent1, self.cent2, self.becog))
-		# Gaussian fit. Estimate initial parameters first
-		par01 = max(self.cont1); par02 = max(self.cont2)
-		par11 = max(self.r1); par12 = max(self.r2)
-		par21 = self.cent1; par22 = self.cent2
-		par31 = 0.4 * (self.nwl1[-1] - self.nwl1[0]); par32 = par31
-		p1 = np.array([par01, 0., par11, par21, par31])
-		p2 = np.array([par02, 0., par12, par22, par32])
-		opt1, pcov1, infodict1, errmsg1, success1 = leastsq(errfunc, p1, args=(self.wl, self.r1), maxfev=10000, full_output=True)
-		opt2, pcov2, infodict2, errmsg2, success2 = leastsq(errfunc, p2, args=(self.wl, self.r2), maxfev=10000, full_output=True)
-		if pcov1 is not None and pcov2 is not None:
-			s_sq1 = (errfunc(opt1, self.wl, self.r1)**2).sum()/(len(self.r1)-len(p1))
-			pcov1 = pcov1 * s_sq1
-			s_sq2 = (errfunc(opt2, self.wl, self.r2)**2).sum()/(len(self.r2)-len(p2))
-			pcov2 = pcov2 * s_sq2
+		if len(self.cont1) != 0 and len(self.cont2) != 0:
+			y11 = self.nwl1 * (self.cont1 - nr1)
+			y12 = (self.cont1 - nr1)
+			y21 = self.nwl2 * (self.cont2 - nr2)
+			y22 = (self.cont2 - nr2)
+			try:
+				int11 = integrate.simps(y11, self.nwl1, even='avg')
+				int12 = integrate.simps(y12, self.nwl1, even='avg')
+				int21 = integrate.simps(y21, self.nwl2, even='avg')
+				int22 = integrate.simps(y22, self.nwl2, even='avg')
+				self.cent1 = int11 / int12
+				self.cent2 = int21 / int22
+				self.becog = (self.cent1 - self.cent2) / (const1 * ((self.cent1+self.cent2)/2.)**2 * glande)
+				print("Line from %.4f to %.4f" %(self.wl[0], self.wl[-1]))
+				print("Center of gravity: centers on %.4f           and %.4f          , Be = %.0f G" %(self.cent1, self.cent2, self.becog))
+			except:
+				self.becog = -99999999
+				self.cent1 = -99999999; self.cent2 = -99999999;
+			# Gaussian fit. Estimate initial parameters first
+			par01 = max(self.cont1); par02 = max(self.cont2)
+			par11 = max(self.r1); par12 = max(self.r2)
+			par21 = self.cent1; par22 = self.cent2
+			par31 = 0.4 * (self.nwl1[-1] - self.nwl1[0]); par32 = par31
+			p1 = np.array([par01, 0., par11, par21, par31])
+			p2 = np.array([par02, 0., par12, par22, par32])
+			opt1, pcov1, infodict1, errmsg1, success1 = leastsq(errfunc, p1, args=(self.wl, self.r1), maxfev=10000, full_output=True)
+			opt2, pcov2, infodict2, errmsg2, success2 = leastsq(errfunc, p2, args=(self.wl, self.r2), maxfev=10000, full_output=True)
+			if pcov1 is not None and pcov2 is not None:
+				s_sq1 = (errfunc(opt1, self.wl, self.r1)**2).sum()/(len(self.r1)-len(p1))
+				pcov1 = pcov1 * s_sq1
+				s_sq2 = (errfunc(opt2, self.wl, self.r2)**2).sum()/(len(self.r2)-len(p2))
+				pcov2 = pcov2 * s_sq2
+				errors1 = []; errors2 = []
+				for i in range(len(opt1)):
+					errors1.append(np.absolute(pcov1[i][i])**0.5)
+					errors2.append(np.absolute(pcov2[i][i])**0.5)
+				self.func1 = gauss(opt1, self.wl)
+				self.func2 = gauss(opt2, self.wl)
+				self.gcent1 = opt1[3]; self.gcent2 = opt2[3]
+				fwhm1 = opt1[4]; fwhm2 = opt2[4]
+				self.begauss = (self.gcent1 - self.gcent2) / (const1 * ((self.gcent1+self.gcent2)/2.)**2 * glande)
+				if errors1[3] <= 0.05 and errors2[3] <= 0.05:
+					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G" %(self.gcent1, errors1[3], self.gcent2, errors2[3], self.begauss))
+				else:
+					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G (BIG UNCERTAINTY!)" %(self.gcent1, errors1[3], self.gcent2, errors2[3], self.begauss))
+			else:
+				self.cent1 = -99999999; self.cent2 = -99999999
+				self.becog = -99999999; self.begauss = -99999999
+				self.gcent1 = -99999999; self.gcent2 = -99999999
+				fwhm1 = -99999999; fwhm2 = -99999999
+			self.res = np.vstack((self.cent1,self.cent2, int(self.becog), self.gcent1, self.gcent2, int(self.begauss), fwhm1, fwhm2, glande))
 		else:
-			pcov1 = np.zeros(len(opt1))
-			pcov2 = np.zeros(len(opt1))
-		errors1 = []; errors2 = []
-		for i in range(len(opt1)):
-			errors1.append(np.absolute(pcov1[i][i])**0.5)
-			errors2.append(np.absolute(pcov2[i][i])**0.5)
-		self.func1 = gauss(opt1, self.wl)
-		self.func2 = gauss(opt2, self.wl)
-		self.gcent1 = opt1[3]; self.gcent2 = opt2[3]
-		fwhm1 = opt1[4]; fwhm2 = opt2[4]
-		self.begauss = (self.gcent1 - self.gcent2) / (const1 * ((self.gcent1+self.gcent2)/2.)**2 * glande)
-		if errors1[3] <= 0.05 and errors2[3] <= 0.05:
-			print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G" %(self.gcent1, errors1[3], self.gcent2, errors2[3], self.begauss))
-		else:
-			print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G (BIG UNCERTAINTY!)" %(self.gcent1, errors1[3], self.gcent2, errors2[3], self.begauss))
-		self.res = np.vstack((self.cent1,self.cent2, int(self.becog), self.gcent1, self.gcent2, int(self.begauss), fwhm1, fwhm2, glande))
+			self.res = -1
 		# Regressional analysis
 		tck = interpolate.splrep(self.wl, self.iss, s=0)
 		iss_der = interpolate.splev(self.wl, tck, der=1)
 		fld_factor_loc = const2 * glande * self.wl**2 * (1./self.iss) * iss_der
 		# Array of the results
-		Be_gs = np.append(Be_gs, self.begauss)
-		Be_cog = np.append(Be_cog, self.becog)
+		if hasattr(self, 'begauss') and hasattr(self, 'becog'):
+			Be_gs = np.append(Be_gs, self.begauss)
+			Be_cog = np.append(Be_cog, self.becog)
 		fld_factor = np.append(fld_factor, fld_factor_loc)
 		v_stockes = np.append(v_stockes, self.vss)
 
@@ -414,14 +424,15 @@ class Graphics(object):
 	def measure_line(self, event):
 		global mask
 		self.line.measure_line()
-		self.ax1.plot(self.line.wl, self.line.func1, 'g-')
-		self.ax1.plot(self.line.wl, self.line.func2, 'k-')
-		mingfit = min(min(self.line.func1), min(self.line.func2))
-		self.ax1.plot([self.line.gcent1, self.line.gcent1], [mingfit-0.03, mingfit-0.01], 'g-', lw=0.7)
-		self.ax1.plot([self.line.gcent2, self.line.gcent2], [mingfit-0.03, mingfit-0.01], 'k-', lw=0.7)
-		# self.ax1.plot(self.line.nwl1, self.line.cont1, 'r-') # draw semi-continuum
-		# self.ax1.plot(self.line.nwl2, self.line.cont2, 'b-') # the same
-		plt.draw()
+		if hasattr(self.line, 'func1') and hasattr(self.line, 'func2'):
+			self.ax1.plot(self.line.wl, self.line.func1, 'g-')
+			self.ax1.plot(self.line.wl, self.line.func2, 'k-')
+			mingfit = min(min(self.line.func1), min(self.line.func2))
+			self.ax1.plot([self.line.gcent1, self.line.gcent1], [mingfit-0.03, mingfit-0.01], 'g-', lw=0.7)
+			self.ax1.plot([self.line.gcent2, self.line.gcent2], [mingfit-0.03, mingfit-0.01], 'k-', lw=0.7)
+			# self.ax1.plot(self.line.nwl1, self.line.cont1, 'r-') # draw semi-continuum
+			# self.ax1.plot(self.line.nwl2, self.line.cont2, 'b-') # the same
+			plt.draw()
 		if mask == "":
 			self.slider_shift.reset()
 
@@ -433,7 +444,8 @@ class Graphics(object):
 			self.line = ZLine()
 			self.line.change_range(self.wl_msk[ln]-self.dwl_msk[ln], 2 * self.dwl_msk[ln])
 			self.measure_line(self)
-			self.write_line(self)
+			if hasattr(self.line, 'func1') and hasattr(self.line, 'func2'):
+				self.write_line(self)
 		print("Measuring using the mask has completed.")
 
 	def readin_mask(self, file_mask):
@@ -464,13 +476,15 @@ class Graphics(object):
 
 	def write_line(self, event):
 		global fh
-		if hasattr(self.line, 'res'):
+		if len(self.line.res) > 1:
 			np.savetxt(fh, self.line.res.transpose(), fmt='%10.4f')
 			self.line.close()
 			print("...saved")
 			self.ax1.text((self.line.gcent1 + self.line.gcent2)/2, min(min(self.line.func1), min(self.line.func2)) - 0.04, 'S')
 			self.wl_msk = np.append(self.wl_msk, np.mean(self.line.wl))
 			self.dwl_msk = np.append(self.dwl_msk, np.mean(self.line.wl)-self.line.wl[0])
+		else:
+			print("...skipped")
 
 	def save_mask(self, event):
 		mask_name = "zeeman_gen.mask"
