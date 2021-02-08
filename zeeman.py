@@ -106,6 +106,7 @@ class ZSpec(object):
 
 	def analyse(self):
 		global Be_gs, Be_cog, fld_factor, v_stockes
+		global report_fh
 		mpl.rcParams['text.usetex'] = True
 		# Classic method and its variations
 		for i in range(5):
@@ -124,7 +125,7 @@ class ZSpec(object):
 		gauss_d, gauss_pval = shapiro(Be_gs)
 		minbe = np.min((np.min(Be_cog), np.min(Be_gs)))
 		maxbe = np.max((np.max(Be_cog), np.max(Be_gs)))
-		with open('analysis_full.out', 'w') as fp:
+		with open(report_fh, 'w') as fp:
 			fp.write("===========================\n")
 			fp.write("Classic positional methods:\n")
 			fp.write("---------------------------------------------------------\n")
@@ -155,7 +156,7 @@ class ZSpec(object):
 		sigma_a = np.sqrt(sigma_y**2 * np.sum(fld_factor**2) / det)
 		sigma_b = np.sqrt(N * sigma_y**2 / det)
 		chisq = np.sum(((v_stockes - a - b*fld_factor) / sigma_y)**2)
-		with open('analysis_full.out', 'a') as fp:
+		with open(report_fh, 'a') as fp:
 			fp.write("======================\n")
 			fp.write("Regressional analysis:\n")
 			fp.write(f"<Bz> = {b:.0f} ± {sigma_b:.0f} G, χ^2 = {chisq:.2f} ({np.random.chisquare(N-2, 1)[0]:.2f})\n")
@@ -385,11 +386,11 @@ class Graphics(object):
 		else:
 			# Slider "line width"
 			axis_width = plt.axes([0.15, 0.1, 0.65, 0.03])
-			self.slider_width = Slider(axis_width, 'Selection Width', 0.5, 12.0, valinit=1.4)
+			self.slider_width = Slider(axis_width, 'Selection Width', 0.5, 22.0, valinit=1.4)
 			self.slider_width.on_changed(self.change_range)
 			# Slider "line center"
 			axis_shift = plt.axes([0.15, 0.20, 0.65, 0.03])
-			self.slider_shift = Slider(axis_shift, 'Selection shift', -3., 3., valinit=0.)
+			self.slider_shift = Slider(axis_shift, 'Selection shift', -6., 6., valinit=0.)
 			self.slider_shift.on_changed(self.change_range)
 		plt.show()
 
@@ -487,16 +488,16 @@ class Graphics(object):
 			print("...skipped")
 
 	def save_mask(self, event):
-		mask_name = "zeeman_gen.mask"
+		global mask_fh
 		output = np.zeros(self.wl_msk.size, dtype=[('wave', float), ('width', float), ('id', 'U32'), ('lande', float)])
 		output['wave'] = self.wl_msk
 		output['width'] = self.dwl_msk
 		output['id'] = np.repeat('NoID', len(self.wl_msk))
 		output['lande'] = 1.23 * np.ones(len(self.wl_msk))
 		try:
-			np.savetxt(mask_name, output, header='Wl0  ;  dWl  ;   ID   ;  g_lande', fmt="%.4f; %.4f; %s; %.2f")
+			np.savetxt(mask_fh, output, header='Wl0  ;  dWl  ;   ID   ;  g_lande', fmt="%.4f; %.4f; %s; %.2f")
 		finally:
-			print("Mask \'zeeman_gen.mask\' saved.")
+			print("Mask {mask_fh} saved.")
 
 	def dump_line(self, event):
 		# Make text dump of lines
@@ -515,11 +516,17 @@ if __name__ == "__main__":
 
 	mask = args.usemask
 	global fh
+	global mask_fh
+	global report_fh
 
 	if args.spec.find('_1.f') != -1:
 		fh = open(args.spec.replace('_1.fits', '.res'), 'a')
+		mask_fh = args.spec.replace('_1.fits', '.mask')
+		report_fh = args.spec.replace('_1.fits', '.report')
 	elif args.spec.find('_2.f') != -1:
 		fh = open(args.spec.replace('_2.fits', '.res'), 'a')
+		mask_fh = args.spec.replace('_2.fits', '.mask')
+		report_fh = args.spec.replace('_2.fits', '.report')
 	curtime = (datetime.now()).isoformat()
 	fh.write('# ---- '+curtime+' ---- \n')
 	fh.write('# λ1_cog    λ2_cog   Be_cog   λ1_gauss    λ2_gauss   Be_gauss  FWHM1   FWHM2   g_lande\n')
