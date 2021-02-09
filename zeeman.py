@@ -497,7 +497,7 @@ class Graphics(object):
 		try:
 			np.savetxt(mask_fh, output, header='Wl0  ;  dWl  ;   ID   ;  g_lande', fmt="%.4f; %.4f; %s; %.2f")
 		finally:
-			print("Mask {mask_fh} saved.")
+			print(f"Mask {mask_fh} saved.")
 
 	def dump_line(self, event):
 		# Make text dump of lines
