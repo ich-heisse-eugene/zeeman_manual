@@ -2,14 +2,16 @@
 #
 # Programme aimed on measurements of zeeman shift in stellar polarized spectra
 # by means of the center of gravity method and gaussian fitting of line's profile
-# Author: Eugene Semenko. Last modification: 09 Jan 2021
+# Author: Eugene Semenko. Last modification: 06 Jan 2021
 
 from sys import exit, argv
+import os
 import numpy as np
 from astropy.io import fits
 from scipy import interpolate, integrate
 from scipy.optimize import curve_fit, leastsq
 from scipy.stats import shapiro, norm
+from scipy.special import erf
 import argparse
 from datetime import datetime
 from matplotlib import pyplot as plt
@@ -33,6 +35,10 @@ Be_gs = np.array([])
 Be_cog = np.array([])
 fld_factor = np.array([])
 v_stockes = np.array([])
+bs_v = np.array([])
+bs_fl = np.array([])
+bs_fld = np.array([])
+v_ref = np.array([])
 
 # General functions
 def interpol_spec(w, r, wl, d):
@@ -55,9 +61,42 @@ def contin_def(w, r1):
 #	print("(%.4f, %.2f) - (%.4f, %.2f) k = %.3f, b = %.3f" %(x1, y1, x2, y2, k, b))
 	return k * xnew + b, xnew, ynew
 
-gauss = lambda p, x: p[0] + p[1] * x - p[2] * np.exp(-(4.*np.log2(2) * (x - p[3])**2)/ p[4]**2)
+gauss = lambda p, x: p[0] - p[1] * np.exp(-(4.*np.log2(2) * (x - p[2])**2)/ p[3]**2)
 
 errfunc = lambda p, x, y: y - gauss(p, x)
+
+# def gauss(p, x):
+# 	slope = p[0] + p[1] * x
+# 	norm = p[2] * np.exp(-(4.*np.log2(2) * (x - p[3])**2)/ p[4]**2)
+# 	skew = 1 + erf(np.sqrt(8 * np.log2(2))*p[5] * (x - p[3])/(np.sqrt(2)*p[4]))
+# 	return slope - norm*skew
+
+def bisectors(wl, par, r1, r2, v0, v0r1, v0r2):
+	left_wing_w = wl[wl <= v0]
+	right_wing_w = wl[wl >= v0]
+	left_wing_i = par[wl <= v0]
+	right_wing_i = par[wl >= v0]
+	left_wing_r1 = r1[wl <= v0r1]
+	right_wing_r1 = r1[wl >= v0r1]
+	left_wing_r2 = r2[wl <= v0r2]
+	right_wing_r2 = r2[wl >= v0r2]
+	flux_bs = np.linspace(np.max([np.min(left_wing_i), np.min(right_wing_i)]), np.min([np.max(left_wing_i), np.max(right_wing_i)]), len(left_wing_i) + len(right_wing_i))
+	if len(left_wing_i) > 2 or len(right_wing_i) > 2:
+		try:
+			left_wing_wi = interpol_spec(np.flip(left_wing_i), np.flip(left_wing_w), flux_bs, 0)
+			right_wing_wi = interpol_spec(right_wing_i, right_wing_w, flux_bs, 0)
+			left_wing_wr1 = interpol_spec(np.flip(left_wing_r1), np.flip(left_wing_w), flux_bs, 0)
+			right_wing_wr1 = interpol_spec(right_wing_r1, right_wing_w, flux_bs, 0)
+			left_wing_wr2 = interpol_spec(np.flip(left_wing_r2), np.flip(left_wing_w), flux_bs, 0)
+			right_wing_wr2 = interpol_spec(right_wing_r2, right_wing_w, flux_bs, 0)
+			bs_i = (left_wing_wi + right_wing_wi) / 2.
+			bs_r1 = (left_wing_wr1 + right_wing_wr1) / 2.
+			bs_r2 = (left_wing_wr2 + right_wing_wr2) / 2.
+			return (c * (bs_i - v0))/v0, flux_bs, bs_r1, bs_r2, bs_i
+		except Exception as e:
+			# print(f"Error while deriving bisectors: {e}")
+			return None, None, None, None, None
+
 
 # Define classes
 class ZSpec(object):
@@ -105,8 +144,9 @@ class ZSpec(object):
 		self.vstockes = (self.ri1 - self.ri2) / (self.ri1 + self.ri2)
 
 	def analyse(self):
-		global Be_gs, Be_cog, fld_factor, v_stockes
+		global Be_gs, Be_cog, fld_factor, v_stockes, bs_v, bs_fl, bs_fld, v_ref
 		global report_fh
+		global argsbs
 		mpl.rcParams['text.usetex'] = True
 		# Classic method and its variations
 		for i in range(5):
@@ -186,6 +226,7 @@ class ZSpec(object):
 		ax1_c.plot(bins, pdf1, 'k--', linewidth=2)
 		ax1_c.set_xlabel(r"$B_\mathrm{e}$(gaussian), G",  fontsize=fontsize)
 		ax1_c.set_ylabel(r"Frequency", fontsize=11)
+		fig_c.savefig(report_fh+".positional.distrib.pdf", dpi=250)
 		# Visualization.Regression
 		fig_r = plt.figure(figsize=(15,6))
 		plt.subplots_adjust(hspace=0.45)
@@ -207,6 +248,7 @@ class ZSpec(object):
 		sigma_vsub = np.std(v_stockes, ddof=1)
 		mu_mfield = np.mean(fld_factor)
 		sigma_mfield = np.std(fld_factor, ddof=1)
+		fig_r.savefig(report_fh+".regression.pdf", dpi=350)
 		fig2_r = plt.figure(figsize=(12,4))
 		ax21_r = fig2_r.add_subplot(2,2,1)
 		ax22_r = fig2_r.add_subplot(2,2,2)
@@ -224,6 +266,34 @@ class ZSpec(object):
 		nn, bins, _ = ax22_r.hist(fld_factor, bins=nsub, density=True, histtype='bar', align='mid', color='g', alpha=0.7)
 		pdf2 = norm.pdf(bins, mu_mfield, sigma_mfield)
 		ax22_r.plot(bins, pdf2, 'r--', linewidth=2)
+		fig2_r.savefig(report_fh+".regression.distrib.pdf", dpi=250)
+		# Visualization. Bisectors
+		if argsbs:
+			idx_filter = np.where((bs_fld >= (np.mean(bs_fld) - 5*sigma_be_gauss)) & (bs_fld <= (np.mean(bs_fld) + 5*sigma_be_gauss)))
+			bs_v = bs_v[idx_filter]
+			bs_fl = bs_fl[idx_filter]
+			bs_fld = bs_fld[idx_filter]
+			v_ref = v_ref[idx_filter]
+			fig_b = plt.figure(figsize=(10,6))
+			plt.subplots_adjust(hspace=0.45)
+			ax1_b = fig_b.add_subplot(2,1,1)
+			ax2_b = fig_b.add_subplot(2,1,2)
+			ax1_b.set_title(rf"Longitudinal field derived from bisectors")
+			ax1_b.set_xlabel(r'Velocity, km\,s$^{-1}$')
+			ax1_b.set_ylabel(r'$\langle B_{l} \rangle$, G')
+			ax2_b.set_xlabel(r'Relative flux')
+			ax2_b.set_ylabel(r'$\langle B_{l} \rangle$, G')
+			ax1_b.plot(bs_v, bs_fld, 'b.', ms=2.8)
+			ax2_b.plot(bs_fl, bs_fld, 'r.', ms=2.8)
+			with open(report_fh+".bs", 'w') as fp:
+				fp.write("# ======================\n")
+				fp.write("# Bisectors:\n")
+				fp.write("# V(km/s)      Flux      Bz      lam0(A):\n")
+				fp.write("# ======================\n")
+				for i in range(len(bs_fld)):
+					fp.write(f"{bs_v[i]:.2f}\t{bs_fl[i]:.2f}\t{bs_fld[i]:.0f}\t{v_ref[i]:.4f}\n")
+				fp.close()
+			fig_b.savefig(report_fh+".bissectors.pdf", dpi=350)
 		plt.show()
 
 
@@ -239,18 +309,26 @@ class ZLine(ZSpec):
 		pass
 
 	def change_range(self, wl0, width):
-		self.wl = ZSpec().wli[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
-		self.r1 = ZSpec().ri1[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
-		self.r2 = ZSpec().ri2[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
+		wl_t = ZSpec().wli[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
+		r1_t = ZSpec().ri1[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
+		r2_t = ZSpec().ri2[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
+		iss_t = (r1_t + r2_t) / 2.
+		ileft = np.argmax(iss_t[0:np.argmin(iss_t)+1])
+		iright = np.argmin(iss_t) + np.argmax(iss_t[np.argmin(iss_t):len(iss_t)+2])
+		self.wl = wl_t[ileft: iright+1]
+		self.r1 = r1_t[ileft: iright+1]
+		self.r2 = r2_t[ileft: iright+1]
+		self.iss = iss_t[ileft: iright+1]
 		self.vss = (self.r1 - self.r2) / (self.r1 + self.r2)
-		self.iss = (self.r1 + self.r2) / 2.
 
 	def measure_line(self):
-		global Be_gs, Be_cog, fld_factor, v_stockes
+		global Be_gs, Be_cog, fld_factor, v_stockes, bs_v, bs_fl, bs_fld, v_ref
+		global argsbs
 		# Measure shift by COG method
 		# Redetermination of continuum level
 		self.cont1, self.nwl1, nr1 = contin_def(self.wl, self.r1)
 		self.cont2, self.nwl2, nr2 = contin_def(self.wl, self.r2)
+		cont, wlc, nrc = contin_def(self.wl, self.iss)
 		if len(self.cont1) != 0 and len(self.cont2) != 0:
 			y11 = self.nwl1 * (self.cont1 - nr1)
 			y12 = (self.cont1 - nr1)
@@ -274,8 +352,21 @@ class ZLine(ZSpec):
 			par11 = max(self.r1); par12 = max(self.r2)
 			par21 = self.cent1; par22 = self.cent2
 			par31 = 0.4 * (self.nwl1[-1] - self.nwl1[0]); par32 = par31
-			p1 = np.array([par01, 0., par11, par21, par31])
-			p2 = np.array([par02, 0., par12, par22, par32])
+			# I parameter
+			par001 = max(cont)
+			par002 = max(self.iss)
+			par003 = (self.cent1 + self.cent2) / 2.
+			par004 = 0.4 * (wlc[-1] - wlc[0])
+			p00 = np.array([par001, par002, par003, par004])
+			try:
+				opt0, pcov0, infodict0, errmsg0, success0 = leastsq(errfunc, p00, args=(self.wl, self.iss), maxfev=10000, full_output=True)
+				self.gcent0 = opt0[3]
+				print(f"Line is centered @ {self.gcent0:.4f}Å")
+			except Exception as e:
+				print(f"Cannot fit I parameter: {e}")
+			#
+			p1 = np.array([par01, par11, par21, par31])
+			p2 = np.array([par02, par12, par22, par32])
 			opt1, pcov1, infodict1, errmsg1, success1 = leastsq(errfunc, p1, args=(self.wl, self.r1), maxfev=10000, full_output=True)
 			opt2, pcov2, infodict2, errmsg2, success2 = leastsq(errfunc, p2, args=(self.wl, self.r2), maxfev=10000, full_output=True)
 			if pcov1 is not None and pcov2 is not None:
@@ -287,15 +378,16 @@ class ZLine(ZSpec):
 				for i in range(len(opt1)):
 					errors1.append(np.absolute(pcov1[i][i])**0.5)
 					errors2.append(np.absolute(pcov2[i][i])**0.5)
-				self.func1 = gauss(opt1, self.wl)
-				self.func2 = gauss(opt2, self.wl)
-				self.gcent1 = opt1[3]; self.gcent2 = opt2[3]
-				fwhm1 = opt1[4]; fwhm2 = opt2[4]
+				self.fit_wl = np.linspace(self.wl[0], self.wl[-1], len(self.wl)*10)
+				self.func1 = gauss(opt1, self.fit_wl)
+				self.func2 = gauss(opt2, self.fit_wl)
+				self.gcent1 = opt1[2]; self.gcent2 = opt2[2]
+				fwhm1 = opt1[3]; fwhm2 = opt2[3]
 				self.begauss = (self.gcent1 - self.gcent2) / (const1 * ((self.gcent1+self.gcent2)/2.)**2 * glande)
-				if errors1[3] <= 0.05 and errors2[3] <= 0.05:
-					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G" %(self.gcent1, errors1[3], self.gcent2, errors2[3], self.begauss))
+				if errors1[2] <= 0.05 and errors2[2] <= 0.05:
+					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G" %(self.gcent1, errors1[2], self.gcent2, errors2[2], self.begauss))
 				else:
-					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G (BIG UNCERTAINTY!)" %(self.gcent1, errors1[3], self.gcent2, errors2[3], self.begauss))
+					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G (BIG UNCERTAINTY!)" %(self.gcent1, errors1[2], self.gcent2, errors2[2], self.begauss))
 			else:
 				self.cent1 = -99999999; self.cent2 = -99999999
 				self.becog = -99999999; self.begauss = -99999999
@@ -304,6 +396,29 @@ class ZLine(ZSpec):
 			self.res = np.vstack((self.cent1,self.cent2, int(self.becog), self.gcent1, self.gcent2, int(self.begauss), fwhm1, fwhm2, glande))
 		else:
 			self.res = -1
+		# Analysis of bisectors
+		if args.bs:
+			if len(self.cont1) != 0 and len(self.cont2) != 0 and self.gcent1 != -99999999 and self.gcent2 != -99999999:
+				if np.min([self.iss[0], self.iss[-1]])/np.max([self.iss[0], self.iss[-1]]) >= 0.7 and \
+			   	   np.min(self.iss)/np.min([self.iss[0], self.iss[-1]]) <= 0.9:
+				   bs, bs_flux, bs1_w, bs2_w, bs_w = bisectors(self.wl, self.iss, self. r1, self.r2, self.gcent0, self.gcent1, self.gcent2)
+				   if (bs is not None):
+					   be_bs = (bs1_w - bs2_w) / (const1 * self.gcent0**2 * glande)
+					   idx_sort = np.argsort(bs)
+					   bs_fld = np.append(bs_fld, be_bs[idx_sort])
+					   bs_fl = np.append(bs_fl, bs_flux[idx_sort])
+					   bs_v = np.append(bs_v, bs[idx_sort])
+					   v_ref = np.append(v_ref, np.repeat(self.gcent0, len(bs)))
+					   if np.isfinite(self.gcent0):
+						   print(f"Bisectors: line {self.gcent0:.3f} has {len(bs)} points")
+						   output_line = "line_"+str(f"{self.gcent0:.1f}.dat")
+						   output_bs = "bs_"+str(f"{self.gcent0:.1f}.dat")
+						   np.savetxt("bisectors" + os.path.sep + output_line, np.vstack((self.wl, self.iss, self.r1, self.r2)).transpose(), fmt="%.4f", header="wl  I  r1  r2")
+						   np.savetxt("bisectors" + os.path.sep + output_bs, np.vstack((bs, bs_flux, bs1_w, bs2_w, bs_w)).transpose(), fmt="%.4f", header="V(km/s)  Flux   lbs_r1, lbs_r2, lbs_i")
+
+		else:
+			if hasattr(self, 'gcent0'):
+				print(f"Warning: Skip analysis of bisectors for this line: {self.gcent0:.4f}")
 		# Regressional analysis
 		tck = interpolate.splrep(self.wl, self.iss, s=0)
 		iss_der = interpolate.splev(self.wl, tck, der=1)
@@ -369,10 +484,10 @@ class Graphics(object):
 		# Button "Exit"
 		axis_exit = plt.axes([0.85, 0.025, 0.1, 0.04])
 		self.button_exit = Button(axis_exit, 'Exit app.', color='red', hovercolor='0.975')
-		self.button_exit.on_clicked(exit)
+		self.button_exit.on_clicked(self.exit)
 		# draw initial plot
-		self.ax1.plot(self.wli, self.ri1, 'r-', lw=0.7)
-		self.ax1.plot(self.wli, self.ri2, 'b-', lw=0.7)
+		self.ax1.plot(self.wli, self.ri1, linestyle='-', lw=1, marker='.', ms=1.1, color='red')
+		self.ax1.plot(self.wli, self.ri2, linestyle='-', lw=1, marker='.', ms=1.1, color='blue')
 		self.ax1.set_xlim([self.wli[0]-1., self.wli[-1]+1.])
 		if mask != "":
 			self.readin_mask(mask)
@@ -381,7 +496,7 @@ class Graphics(object):
 		if mask != "":
 			# Slider "Shift mask"
 			axis_shiftmask = plt.axes([0.15, 0.10, 0.65, 0.03])
-			self.slider_shiftmask = Slider(axis_shiftmask, 'Shift mask [km/s]', -80, 80, valinit=0)
+			self.slider_shiftmask = Slider(axis_shiftmask, 'Shift mask [km/s]', -150, 150, valinit=0)
 			self.slider_shiftmask.on_changed(self.shiftmask)
 		else:
 			# Slider "line width"
@@ -426,8 +541,8 @@ class Graphics(object):
 		global mask
 		self.line.measure_line()
 		if hasattr(self.line, 'func1') and hasattr(self.line, 'func2'):
-			self.ax1.plot(self.line.wl, self.line.func1, 'g-')
-			self.ax1.plot(self.line.wl, self.line.func2, 'k-')
+			self.ax1.plot(self.line.fit_wl, self.line.func1, 'g-', lw=1)
+			self.ax1.plot(self.line.fit_wl, self.line.func2, 'k-', lw=1)
 			mingfit = min(min(self.line.func1), min(self.line.func2))
 			self.ax1.plot([self.line.gcent1, self.line.gcent1], [mingfit-0.03, mingfit-0.01], 'g-', lw=0.7)
 			self.ax1.plot([self.line.gcent2, self.line.gcent2], [mingfit-0.03, mingfit-0.01], 'k-', lw=0.7)
@@ -438,6 +553,7 @@ class Graphics(object):
 			self.slider_shift.reset()
 
 	def analyse(self, event):
+		global report_fh
 		ZSpec().analyse()
 
 	def measure_mask(self, event):
@@ -506,15 +622,23 @@ class Graphics(object):
 		np.savetxt(outname+'_1.line', np.vstack((outarr1, self.line.r1)).transpose(), fmt='%10.4f', delimiter='\t')
 		np.savetxt(outname+'_2.line', np.vstack((outarr2, self.line.r2)).transpose(), fmt='%10.4f', delimiter='\t')
 
+	def exit(self, event):
+		self.ax1.set_xlim([self.wli[0]-1., self.wli[-1]+1.])
+		self.ax1.set_ylim([0, 1.1])
+		self.fig1.savefig(report_fh+".visual.pdf", dpi=350)
+		exit(0)
+
 
 # Main block
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("spec", help="Input spectrum", type=str, default="")
 	parser.add_argument("--usemask", help="Use mask of lines", type=str, default="")
+	parser.add_argument("--bs", help="Measure bisectors of the line", action="store_true")
 	args = parser.parse_args()
 
 	mask = args.usemask
+	argsbs = args.bs
 	global fh
 	global mask_fh
 	global report_fh
@@ -531,6 +655,11 @@ if __name__ == "__main__":
 	fh.write('# ---- '+curtime+' ---- \n')
 	fh.write('# λ1_cog    λ2_cog   Be_cog   λ1_gauss    λ2_gauss   Be_gauss  FWHM1   FWHM2   g_lande\n')
 	spec = ZSpec()
+	if argsbs:
+		try:
+			os.mkdir("bisectors")
+		except Exception:
+			pass
 	cnv = Graphics(spec.wli, spec.ri1, spec.ri2)
 	fh.close()
 	exit(0)
