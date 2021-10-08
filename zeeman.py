@@ -27,7 +27,7 @@ mpl.rcParams['font.serif'] = 'Times Palatino, New Century Schoolbook, Bookman,  
 
 glande = 1.23
 c = 299792.458 # speed of light in km/s
-const1 = 9.34 * 10**(-13)
+const1 = 4.67 * 10**(-13)
 const2 = -4.67 * 10**(-13)
 
 # Output data
