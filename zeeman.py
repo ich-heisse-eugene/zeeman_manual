@@ -216,13 +216,13 @@ class ZSpec(object):
 		fig_c = plt.figure(figsize=(8, 3), tight_layout=True)
 		fig_c.subplots_adjust(top=0.96,bottom=0.15,right=0.98,left=0.08, hspace=0.4,   wspace=0.2)
 		ax_c = fig_c.add_subplot(1,2,1)
-		nn, bins, _ = ax_c.hist(Be_cog, nbins, color='b', density=True, histtype='bar', align='mid', alpha=0.7)
+		nn, bins, _ = ax_c.hist(Be_cog, nbins, color='#75bbfd', density=True, histtype='bar', align='mid', alpha=0.7)
 		pdf1 = norm.pdf(bins, mean_be_cog, sigma_be_cog)
 		ax_c.plot(bins, pdf1, 'k--', linewidth=2)
 		ax_c.set_xlabel(r"$B_\mathrm{e}$(COG), G",  fontsize=fontsize)
 		ax_c.set_ylabel(r"Frequency", fontsize=fontsize)
 		ax1_c = fig_c.add_subplot(1,2,2)
-		nn, bins, _ = ax1_c.hist(Be_gs, nbins, color='r', density=True, histtype='bar', align='mid', alpha=0.7)
+		nn, bins, _ = ax1_c.hist(Be_gs, nbins, color='#ff796c', density=True, histtype='bar', align='mid', alpha=0.7)
 		pdf1 = norm.pdf(bins, mean_be_gauss, sigma_be_cog)
 		ax1_c.plot(bins, pdf1, 'k--', linewidth=2)
 		ax1_c.set_xlabel(r"$B_\mathrm{e}$(gaussian), G",  fontsize=fontsize)
@@ -232,17 +232,23 @@ class ZSpec(object):
 		fig_r = plt.figure(figsize=(15,6))
 		plt.subplots_adjust(hspace=0.45)
 		ax1_r = fig_r.add_subplot(2,1,1)
+		ax1_r.tick_params(axis='both', direction='in')
+		ax1_r.xaxis.set_ticks_position('both')
+		ax1_r.yaxis.set_ticks_position('both')
 		ax2_r = fig_r.add_subplot(2,1,2)
+		ax2_r.tick_params(axis='both', direction='in')
+		ax2_r.xaxis.set_ticks_position('both')
+		ax2_r.yaxis.set_ticks_position('both')
 		ax1_r.set_title(rf"$<B_z> =\, {b:.0f}\,\pm\,{sigma_b:.0f}$ G, $\chi^2 =\, {chisq:.1f}$")
 		ax1_r.set_xlabel(r'$-4.67\cdot10^{-13} g_{eff} \lambda^2 \frac{1}{I} \frac{\mathrm{d}I}{\mathrm{d}\lambda}$')
 		ax1_r.set_ylabel(r'$V/I$')
-		ax1_r.plot(fld_factor, v_stockes, 'bs', ms=0.8)
-		ax1_r.errorbar(fld_factor, v_stockes, yerr=sigma_y, ecolor='g', elinewidth=0.8, fmt="none", markeredgewidth=0)
-		ax1_r.plot(fld_factor, b * fld_factor + a, 'r', lw=1)
+		ax1_r.plot(fld_factor, v_stockes, marker='s', ms=0.8, color='#5cac2d', ls='')
+		ax1_r.errorbar(fld_factor, v_stockes, yerr=sigma_y, ecolor='#96ae8d', elinewidth=0.8, fmt="none", markeredgewidth=0)
+		ax1_r.plot(fld_factor, b * fld_factor + a, color='#0504aa', lw=1, ls='-')
 		ax2_r.set_xlabel(r"$\lambda,\, \mathrm{\AA}$")
 		ax2_r.set_ylabel(r"$I,\, V/I\cdot5+1.05$")
-		ax2_r.plot(self.wli, self.istockes, 'r-')
-		ax2_r.plot(self.wli, self.vstockes*5 + 1.05, 'g')
+		ax2_r.plot(self.wli, self.istockes, ls='-', color='#be0119', lw=0.8)
+		ax2_r.plot(self.wli, self.vstockes*5 + 1.05, ls='-', color='#5cac2d', lw=0.8)
 		# draw histograms
 		# formatter = FormatStrFormatter('%1.0e')
 		mu_vsub = np.mean(v_stockes)
@@ -259,12 +265,12 @@ class ZSpec(object):
 		else:
 			nsub = 15
 		ax21_r.set_xlabel(r'$V/I$')
-		nn, bins, _ = ax21_r.hist(v_stockes, bins=nsub, density=True, histtype='bar', align='mid', color='g', alpha=0.7)
+		nn, bins, _ = ax21_r.hist(v_stockes, bins=nsub, density=True, histtype='bar', align='mid', color='#39ad48', alpha=0.7)
 		pdf1 = norm.pdf(bins, mu_vsub, sigma_vsub)
 		ax21_r.plot(bins, pdf1, 'r--', linewidth=2)
 		ax22_r.set_xlabel(r'$-4.67\cdot10^{-13} g_{eff} \lambda^2 \frac{1}{I} \frac{\mathrm{d}I}{\mathrm{d}\lambda}$')
 		# ax22_r.xaxis.set_major_formatter(formatter)
-		nn, bins, _ = ax22_r.hist(fld_factor, bins=nsub, density=True, histtype='bar', align='mid', color='g', alpha=0.7)
+		nn, bins, _ = ax22_r.hist(fld_factor, bins=nsub, density=True, histtype='bar', align='mid', color='#39ad48', alpha=0.7)
 		pdf2 = norm.pdf(bins, mu_mfield, sigma_mfield)
 		ax22_r.plot(bins, pdf2, 'r--', linewidth=2)
 		fig2_r.savefig(report_fh+".regression.distrib.pdf", dpi=250)
@@ -355,7 +361,12 @@ class ZLine(ZSpec):
 			# Gaussian fit. Estimate initial parameters first
 			par01 = max(self.cont1); par02 = max(self.cont2)
 			par11 = max(self.r1); par12 = max(self.r2)
-			par21 = self.cent1; par22 = self.cent2
+			if self.cent1 == -99999999 and self.cent2 != -99999999:
+				par21 = self.cent2
+			elif self.cent1 != -99999999 and self.cent2 == -99999999:
+				par22 = self.cent1
+			else:
+				par21 = self.cent1; par22 = self.cent2
 			par31 = 0.4 * (self.nwl1[-1] - self.nwl1[0]); par32 = par31
 			# I parameter
 			par001 = max(cont)
@@ -366,6 +377,7 @@ class ZLine(ZSpec):
 			try:
 				opt0, pcov0, infodict0, errmsg0, success0 = leastsq(errfunc, p00, args=(self.wl, self.iss), maxfev=10000, full_output=True)
 				self.gcent0 = opt0[2]
+				self.depth0 = opt0[1]
 				print(f"Line is centered @ {self.gcent0:.4f} Å")
 			except Exception as e:
 				print(f"Cannot fit I parameter: {e}")
@@ -398,7 +410,9 @@ class ZLine(ZSpec):
 				self.becog = -99999999; self.begauss = -99999999
 				self.gcent1 = -99999999; self.gcent2 = -99999999
 				fwhm1 = -99999999; fwhm2 = -99999999
-			self.res = np.vstack((self.cent1,self.cent2, int(self.becog), self.gcent1, self.gcent2, int(self.begauss), fwhm1, fwhm2, glande))
+			self.shift_cog = (self.cent1 - self.cent2)
+			self.shift_g = self.gcent1 - self.gcent2
+			self.res = np.vstack((self.cent1,self.cent2, self.shift_cog, int(self.becog), self.gcent1, self.gcent2, self.shift_g, int(self.begauss), fwhm1, fwhm2, self.gcent0, self.depth0, glande))
 		else:
 			self.res = -1
 		# Analysis of bisectors
@@ -420,20 +434,19 @@ class ZLine(ZSpec):
 						   output_bs = "bs_"+str(f"{self.gcent0:.1f}.dat")
 						   np.savetxt("bisectors" + os.path.sep + output_line, np.vstack((self.wl, self.iss, self.r1, self.r2)).transpose(), fmt="%.4f", header="wl  I  r1  r2")
 						   np.savetxt("bisectors" + os.path.sep + output_bs, np.vstack((bs, bs_flux, bs1_w, bs2_w, bs_w)).transpose(), fmt="%.4f", header="V(km/s)  Flux   lbs_r1, lbs_r2, lbs_i")
-
-		else:
-			if hasattr(self, 'gcent0'):
-				print(f"Warning: Skip analysis of bisectors for this line: {self.gcent0:.4f}")
 		# Regressional analysis
-		tck = interpolate.splrep(self.wl, self.iss, s=0)
-		iss_der = interpolate.splev(self.wl, tck, der=1)
-		fld_factor_loc = const2 * glande * self.wl**2 * (1./self.iss) * iss_der
+		if len(self.wl) > 3:
+			tck = interpolate.splrep(self.wl, self.iss, s=0)
+			iss_der = interpolate.splev(self.wl, tck, der=1)
+			fld_factor_loc = const2 * glande * self.wl**2 * (1./self.iss) * iss_der
+			fld_factor = np.append(fld_factor, fld_factor_loc)
+			v_stockes = np.append(v_stockes, self.vss)
+		else:
+			print("The line has wrong length. Change the width and repeat measurements")
 		# Array of the results
 		if hasattr(self, 'begauss') and hasattr(self, 'becog'):
 			Be_gs = np.append(Be_gs, self.begauss)
 			Be_cog = np.append(Be_cog, self.becog)
-		fld_factor = np.append(fld_factor, fld_factor_loc)
-		v_stockes = np.append(v_stockes, self.vss)
 
 
 class Graphics(object):
@@ -446,6 +459,9 @@ class Graphics(object):
 		self.dwl_msk = np.array([])
 		self.fig1 = plt.figure(figsize=(15,6))
 		self.ax1 = self.fig1.add_subplot(1,1,1)
+		self.ax1.tick_params(axis='both', direction='in')
+		self.ax1.xaxis.set_ticks_position('both')
+		self.ax1.yaxis.set_ticks_position('both')
 		self.lc = 0
 		plt.subplots_adjust(bottom=0.35)
 		self.ax1.set_xlabel('Wavelength, Angstroms')
@@ -454,19 +470,19 @@ class Graphics(object):
 			# Widgets
 			# Button "Select line"
 			axis_line = plt.axes([0.04, 0.025, 0.1, 0.04])
-			self.button_line = Button(axis_line, 'Select line', color='grey', hovercolor='0.975')
+			self.button_line = Button(axis_line, 'Select line', color='#d8dcd6', hovercolor='0.975')
 			self.button_line.on_clicked(self.lineselect)
 			# Button "Measure line"
 			axis_measure = plt.axes([0.15, 0.025, 0.1, 0.04])
-			self.button_measure = Button(axis_measure, 'Measure line', color='grey', hovercolor='0.975')
+			self.button_measure = Button(axis_measure, 'Measure line', color='#d8dcd6', hovercolor='0.975')
 			self.button_measure.on_clicked(self.measure_line)
 			# Button "Write result"
 			axis_writeout = plt.axes([0.26, 0.025, 0.1, 0.04])
-			self.button_writeout = Button(axis_writeout, 'Write results', color='green', hovercolor='0.975')
+			self.button_writeout = Button(axis_writeout, 'Write results', color='#a6c875', hovercolor='0.975')
 			self.button_writeout.on_clicked(self.write_line)
 			# Button "Dump line"
 			axis_dumpline = plt.axes([0.37, 0.025, 0.1, 0.04])
-			self.button_dumpline = Button(axis_dumpline, 'Dump line', color='grey', hovercolor='0.975')
+			self.button_dumpline = Button(axis_dumpline, 'Dump line', color='#d8dcd6', hovercolor='0.975')
 			self.button_dumpline.on_clicked(self.dump_line)
 		# Button "Save mask"
 		axis_savemask = plt.axes([0.48, 0.025, 0.1, 0.04])
@@ -474,30 +490,30 @@ class Graphics(object):
 			name = 'Save mask'
 		else:
 			name = 'Measure by mask'
-		self.button_savemask = Button(axis_savemask, name, color='grey', hovercolor='0.975')
+		self.button_savemask = Button(axis_savemask, name, color='#d8dcd6', hovercolor='0.975')
 		if args.usemask == "":
 			self.button_savemask.on_clicked(self.save_mask)
 		else:
 			self.button_savemask.on_clicked(self.measure_mask)
 		# Button "Analyse"
 		axis_analyse = plt.axes([0.59, 0.025, 0.1, 0.04])
-		self.button_analyse = Button(axis_analyse, 'Analyse results', color='blue', hovercolor='0.975')
+		self.button_analyse = Button(axis_analyse, 'Analyse results', color='#75bbfd', hovercolor='0.975')
 		self.button_analyse.on_clicked(self.analyse)
 		# Button "Reset plot"
 		axis_reset = plt.axes([0.74, 0.025, 0.1, 0.04])
-		self.button_reset = Button(axis_reset, 'Reset plot', color='orange', hovercolor='0.975')
+		self.button_reset = Button(axis_reset, 'Reset plot', color='#fdaa48', hovercolor='0.975')
 		self.button_reset.on_clicked(self.reset)
 		# Button "Exit"
 		axis_exit = plt.axes([0.85, 0.025, 0.1, 0.04])
-		self.button_exit = Button(axis_exit, 'Exit app.', color='red', hovercolor='0.975')
+		self.button_exit = Button(axis_exit, 'Exit app.', color='#ff474c', hovercolor='0.975')
 		self.button_exit.on_clicked(self.exit)
 		# draw initial plot
-		self.ax1.plot(self.wli, self.ri1, linestyle='-', lw=1, marker='.', ms=1.1, color='red')
-		self.ax1.plot(self.wli, self.ri2, linestyle='-', lw=1, marker='.', ms=1.1, color='blue')
+		self.ax1.plot(self.wli, self.ri1, linestyle='-', lw=1.1, marker='.', ms=1.2, color='#fc5a50')
+		self.ax1.plot(self.wli, self.ri2, linestyle='-', lw=1, marker='.', ms=1.2, color='#069af3')
 		self.ax1.set_xlim([self.wli[0]-1., self.wli[-1]+1.])
 		if mask != "":
 			self.readin_mask(mask)
-		cursor = Cursor(self.ax1, useblit=True, color='red', linewidth=0.5)
+		cursor = Cursor(self.ax1, useblit=True, color='#e50000', linewidth=0.5)
 		# Controls
 		if mask != "":
 			# Slider "Shift mask"
@@ -529,7 +545,7 @@ class Graphics(object):
 			width = self.slider_width.val
 			shift = self.slider_shift.val
 			center = (self.lc + shift)
-			self.band, = self.ax1.bar(center, width=width, height=max(self.ri1), color='blue', alpha=0.3, align='center')
+			self.band, = self.ax1.bar(center, width=width, height=max(self.ri1), color='#929591', alpha=0.3, align='center')
 			self.ax1.set_ylim(yc[0], yc[1])
 			plt.draw()
 			self.line = ZLine()
@@ -548,11 +564,11 @@ class Graphics(object):
 		global mask
 		self.line.measure_line()
 		if hasattr(self.line, 'func1') and hasattr(self.line, 'func2'):
-			self.ax1.plot(self.line.fit_wl, self.line.func1, 'g-', lw=1)
-			self.ax1.plot(self.line.fit_wl, self.line.func2, 'k-', lw=1)
+			self.ax1.plot(self.line.fit_wl, self.line.func1, ls='-', color='#8f1402', lw=1)
+			self.ax1.plot(self.line.fit_wl, self.line.func2, ls='-', color='#010fcc', lw=1)
 			mingfit = min(min(self.line.func1), min(self.line.func2))
-			self.ax1.plot([self.line.gcent1, self.line.gcent1], [mingfit-0.03, mingfit-0.01], 'g-', lw=0.7)
-			self.ax1.plot([self.line.gcent2, self.line.gcent2], [mingfit-0.03, mingfit-0.01], 'k-', lw=0.7)
+			self.ax1.plot([self.line.gcent1, self.line.gcent1], [mingfit-0.03, mingfit-0.01], ls='-', color='#8f1402', lw=0.7)
+			self.ax1.plot([self.line.gcent2, self.line.gcent2], [mingfit-0.03, mingfit-0.01], ls='-', color='#010fcc', lw=0.7)
 			# self.ax1.plot(self.line.nwl1, self.line.cont1, 'r-') # draw semi-continuum
 			# self.ax1.plot(self.line.nwl2, self.line.cont2, 'b-') # the same
 			plt.draw()
@@ -573,7 +589,7 @@ class Graphics(object):
 	def readin_mask(self, file_mask):
 		self.wl_msk, self.dwl_msk = np.loadtxt(file_mask, unpack=True, usecols=(0,1), delimiter=';', comments='#')
 		self.wl0_msk = self.wl_msk
-		self.band_msk = self.ax1.bar(self.wl_msk, width=self.dwl_msk*2., height=max(self.ri1), color='orange', alpha=0.5, align='center')
+		self.band_msk = self.ax1.bar(self.wl_msk, width=self.dwl_msk*2., height=max(self.ri1), color='orange', alpha=0.3, align='center')
 		plt.draw()
 
 	def shiftmask(self, event):
@@ -587,8 +603,8 @@ class Graphics(object):
 	def reset(self, event):
 		global mask
 		self.ax1.clear()
-		self.ax1.plot(self.wli, self.ri1, 'r-', lw=0.7)
-		self.ax1.plot(self.wli, self.ri2, 'b-', lw=0.7)
+		self.ax1.plot(self.wli, self.ri1, lw=1.1, marker='.', ms=1.2, color='#fc5a50')
+		self.ax1.plot(self.wli, self.ri2, lw=1.1, marker='.', ms=1.2, color='#069af3')
 		self.ax1.set_xlim([self.wli[0]-1., self.wli[-1]+1.])
 		if mask == "":
 			self.slider_width.reset()
@@ -602,7 +618,7 @@ class Graphics(object):
 			np.savetxt(fh, self.line.res.transpose(), fmt='%10.4f')
 			self.line.close()
 			print("...saved")
-			self.ax1.text((self.line.gcent1 + self.line.gcent2)/2, min(min(self.line.func1), min(self.line.func2)) - 0.04, 'S')
+			self.ax1.text((self.line.gcent1 + self.line.gcent2)/2, min(min(self.line.func1), min(self.line.func2)) - 0.06, 'S', ha='center')
 			self.wl_msk = np.append(self.wl_msk, np.mean(self.line.wl))
 			self.dwl_msk = np.append(self.dwl_msk, np.mean(self.line.wl)-self.line.wl[0])
 		else:
@@ -658,7 +674,7 @@ if __name__ == "__main__":
 		report_fh = args.spec.replace('_2.fits', '.report')
 	curtime = (datetime.now()).isoformat()
 	fh.write('# ---- '+curtime+' ---- \n')
-	fh.write('# λ1_cog    λ2_cog   Be_cog   λ1_gauss    λ2_gauss   Be_gauss  FWHM1   FWHM2   g_lande\n')
+	fh.write('# λ1_cog    λ2_cog Δλ_cog  Be_cog   λ1_gauss    λ2_gauss Δλ_gauss  Be_gauss  FWHM1   FWHM2  λ0  r0  g_lande\n')
 	spec = ZSpec()
 	if argsbs:
 		try:
