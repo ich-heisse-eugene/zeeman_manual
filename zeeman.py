@@ -340,20 +340,15 @@ class ZLine(ZSpec):
 				int12 = integrate.simps(y12, self.nwl1, even='avg')
 				int21 = integrate.simps(y21, self.nwl2, even='avg')
 				int22 = integrate.simps(y22, self.nwl2, even='avg')
-				if int12 == 0 or int22 == 0 or np.isnan(int12) or np.isnan(int22):
-					self.becog = -99999999
-					self.cent1 = -99999999; self.cent2 = -99999999;
-				else:
+				if int12 != 0 and int22 != 0 and ~np.isnan(int21) and ~np.isnan(int22):
 					self.cent1 = int11 / int12
 					self.cent2 = int21 / int22
 					self.becog = (self.cent1 - self.cent2) / (const1 * ((self.cent1+self.cent2)/2.)**2 * glande)
-					print("Line from %.4f to %.4f" %(self.wl[0], self.wl[-1]))
-					rint("Center of gravity: centers on %.4f           and %.4f          , Be = %.0f G" %(self.cent1, self.cent2, self.becog))
-				self.cent1 = int11 / int12
-				self.cent2 = int21 / int22
-				self.becog = (self.cent1 - self.cent2) / (const1 * ((self.cent1+self.cent2)/2.)**2 * glande)
-				print("Line from %.4f to %.4f" %(self.wl[0], self.wl[-1]))
-				print("Center of gravity: centers on %.4f           and %.4f          , Be = %.0f G" %(self.cent1, self.cent2, self.becog))
+					print(f"Line spans from {self.wl[0]:.4f} to {self.wl[-1]:.4f}")
+					print(f"Center-of-gravity: centers at {self.cent1:9.4f} Å         and {self.cent2:9.4f} Å,         Be = {self.becog:.0f} G")
+				else:
+					self.becog = -99999999
+					self.cent1 = -99999999; self.cent2 = -99999999;
 			except:
 				self.becog = -99999999
 				self.cent1 = -99999999; self.cent2 = -99999999;
@@ -370,8 +365,8 @@ class ZLine(ZSpec):
 			p00 = np.array([par001, par002, par003, par004])
 			try:
 				opt0, pcov0, infodict0, errmsg0, success0 = leastsq(errfunc, p00, args=(self.wl, self.iss), maxfev=10000, full_output=True)
-				self.gcent0 = opt0[3]
-				print(f"Line is centered @ {self.gcent0:.4f}Å")
+				self.gcent0 = opt0[2]
+				print(f"Line is centered @ {self.gcent0:.4f} Å")
 			except Exception as e:
 				print(f"Cannot fit I parameter: {e}")
 			#
@@ -395,9 +390,9 @@ class ZLine(ZSpec):
 				fwhm1 = opt1[3]; fwhm2 = opt2[3]
 				self.begauss = (self.gcent1 - self.gcent2) / (const1 * ((self.gcent1+self.gcent2)/2.)**2 * glande)
 				if errors1[2] <= 0.05 and errors2[2] <= 0.05:
-					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G" %(self.gcent1, errors1[2], self.gcent2, errors2[2], self.begauss))
+					print("Gauss fit:         centers at %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G" %(self.gcent1, errors1[2], self.gcent2, errors2[2], self.begauss))
 				else:
-					print("Gauss fit:         centers on %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G (BIG UNCERTAINTY!)" %(self.gcent1, errors1[2], self.gcent2, errors2[2], self.begauss))
+					print("Gauss fit:         centers at %.4f (±%.4f) and %.4f (±%.4f), Be = %.0f G (BIG UNCERTAINTY!)" %(self.gcent1, errors1[2], self.gcent2, errors2[2], self.begauss))
 			else:
 				self.cent1 = -99999999; self.cent2 = -99999999
 				self.becog = -99999999; self.begauss = -99999999
@@ -451,6 +446,7 @@ class Graphics(object):
 		self.dwl_msk = np.array([])
 		self.fig1 = plt.figure(figsize=(15,6))
 		self.ax1 = self.fig1.add_subplot(1,1,1)
+		self.lc = 0
 		plt.subplots_adjust(bottom=0.35)
 		self.ax1.set_xlabel('Wavelength, Angstroms')
 		self.ax1.set_ylabel('Residual intensity')
@@ -521,6 +517,7 @@ class Graphics(object):
 
 
 	def lineselect(self, event):
+		self.slider_shift.reset()
 		print("Mark center of measured line")
 		self.cid1 = self.fig1.canvas.mpl_connect('button_press_event', self.selected)
 
@@ -559,8 +556,6 @@ class Graphics(object):
 			# self.ax1.plot(self.line.nwl1, self.line.cont1, 'r-') # draw semi-continuum
 			# self.ax1.plot(self.line.nwl2, self.line.cont2, 'b-') # the same
 			plt.draw()
-		if mask == "":
-			self.slider_shift.reset()
 
 	def analyse(self, event):
 		global report_fh
