@@ -48,19 +48,18 @@ def interpol_spec(w, r, wl, d):
 	return ri
 
 def contin_def(w, r1):
-	meanx = np.mean(w)
-	leftarr = r1[np.where((w >= w[0]) & (w <= meanx))]
-	y1 = max(leftarr)
-	x1 = w[np.where(r1 == y1)]
-	rightarr = r1[np.where((w >= meanx) & (w <= w[-1]))]
-	y2 = max(rightarr)
-	x2 = w[np.where(r1 == y2)]
-	xnew = w[np.where((w > x1) & (w < x2))]
-	ynew = r1[np.where((w > x1) & (w < x2))]
-	k = (y2 - y1) / (x2 - x1)
-	b = y1 - k * x1
-#	print("(%.4f, %.2f) - (%.4f, %.2f) k = %.3f, b = %.3f" %(x1, y1, x2, y2, k, b))
-	return k * xnew + b, xnew, ynew
+	# meanx = np.mean(w)
+	# leftarr = r1[np.where((w >= w[0]) & (w <= meanx))]
+	# y1 = max(leftarr)
+	# x1 = w[np.where(r1 == y1)]
+	# rightarr = r1[np.where((w >= meanx) & (w <= w[-1]))]
+	# y2 = max(rightarr)
+	# x2 = w[np.where(r1 == y2)]
+	# xnew = w[np.where((w > x1) & (w < x2))]
+	# ynew = r1[np.where((w > x1) & (w < x2))]
+	k = (r1[-1] - r1[0]) / (w[-1] - w[0])
+	b = r1[0] - k * w[0]
+	return k * w + b, w, r1
 
 gauss = lambda p, x: p[0] - p[1] * np.exp(-(4.*np.log2(2) * (x - p[2])**2)/ p[3]**2)
 
@@ -316,17 +315,20 @@ class ZLine(ZSpec):
 		pass
 
 	def change_range(self, wl0, width):
-		wl_t = ZSpec().wli[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
-		r1_t = ZSpec().ri1[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
-		r2_t = ZSpec().ri2[np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))]
+		idx = np.where((ZSpec().wli >= wl0) & (ZSpec().wli <= wl0+width))[0]
+		wl_t = ZSpec().wli[idx]
+		r1_t = ZSpec().ri1[idx]
+		r2_t = ZSpec().ri2[idx]
 		iss_t = (r1_t + r2_t) / 2.
-		ileft = np.argmax(iss_t[0:np.argmin(iss_t)+1])
-		iright = np.argmin(iss_t) + np.argmax(iss_t[np.argmin(iss_t):len(iss_t)+2])
-		self.wl = wl_t[ileft: iright+1]
-		self.r1 = r1_t[ileft: iright+1]
-		self.r2 = r2_t[ileft: iright+1]
-		self.iss = iss_t[ileft: iright+1]
-		self.vss = (self.r1 - self.r2) / (self.r1 + self.r2)
+		if len(iss_t) != 0:
+			icent = np.argmin(iss_t)
+			ileft = np.argmax(iss_t[0:icent])
+			iright = icent+np.argmax(iss_t[icent+1:-1])+2
+			self.wl = wl_t[ileft: iright]
+			self.r1 = r1_t[ileft: iright]
+			self.r2 = r2_t[ileft: iright]
+			self.iss = iss_t[ileft: iright]
+			self.vss = (self.r1 - self.r2) / (self.r1 + self.r2)
 
 	def measure_line(self):
 		global Be_gs, Be_cog, fld_factor, v_stockes, bs_v, bs_fl, bs_fld, v_ref
@@ -342,10 +344,10 @@ class ZLine(ZSpec):
 			y21 = self.nwl2 * (self.cont2 - nr2)
 			y22 = (self.cont2 - nr2)
 			try:
-				int11 = integrate.simps(y11, self.nwl1, even='avg')
-				int12 = integrate.simps(y12, self.nwl1, even='avg')
-				int21 = integrate.simps(y21, self.nwl2, even='avg')
-				int22 = integrate.simps(y22, self.nwl2, even='avg')
+				int11 = integrate.simpson(y11, x=self.nwl1)
+				int12 = integrate.simpson(y12, x=self.nwl1)
+				int21 = integrate.simpson(y21, x=self.nwl2)
+				int22 = integrate.simpson(y22, x=self.nwl2)
 				if int12 != 0 and int22 != 0 and ~np.isnan(int21) and ~np.isnan(int22):
 					self.cent1 = int11 / int12
 					self.cent2 = int21 / int22
@@ -355,7 +357,8 @@ class ZLine(ZSpec):
 				else:
 					self.becog = -99999999
 					self.cent1 = -99999999; self.cent2 = -99999999;
-			except:
+			except Exception as e:
+				print(f"{e}")
 				self.becog = -99999999
 				self.cent1 = -99999999; self.cent2 = -99999999;
 			# Gaussian fit. Estimate initial parameters first
