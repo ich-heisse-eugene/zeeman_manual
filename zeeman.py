@@ -120,8 +120,8 @@ class ZSpec(object):
 		crval1 = hdr1['CRVAL1']; crval2 = hdr2['CRVAL1']
 		crpix1 = hdr1['CRPIX1']; crpix2 = hdr2['CRPIX1']
 		cdelt1 = hdr1['CDELT1']; cdelt2 = hdr2['CDELT1']
-		wl1 = crval1 + (np.arange(npix1) - crpix1) * cdelt1
-		wl2 = crval2 + (np.arange(npix2) - crpix2) * cdelt2
+		wl1 = crval1 + (np.arange(npix1) - crpix1 + 1) * cdelt1
+		wl2 = crval2 + (np.arange(npix2) - crpix2 + 1) * cdelt2
 		if hdr1['NAXIS'] == 3:
 			r1 = hdu1[0].data[0, 0, :]
 		elif hdr1['NAXIS'] == 1:
